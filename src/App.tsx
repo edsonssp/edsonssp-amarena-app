@@ -174,11 +174,20 @@ const OrderTicket = ({ order }: { order: Order | null }) => {
 
 // --- App ---
 
+type AppSettings = {
+  acai?: Record<string, number>;
+  milkshake?: Record<string, number>;
+  sundae?: Record<string, number>;
+  acaiAddons?: string[];
+  milkshakeAddons?: string[];
+  sundaeAddons?: string[];
+};
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'sorvete' | 'picole' | 'potes' | 'acai' | 'promos' | 'milkshake' | 'whatsapp' | 'admin' | 'checkout' | 'success'>('home');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [adminSection, setAdminSection] = useState<'dashboard' | 'products' | 'orders' | 'addons' | 'settings'>('dashboard');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(!!localStorage.getItem('amarena_admin_token'));
@@ -280,13 +289,22 @@ export default function App() {
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const res = await axios.get('/api/settings');
+      setSettings(res.data);
+    } catch (err) {
+      console.error("Error fetching settings:", err);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-    let intervalId: NodeJS.Timeout;
 
     const load = async () => {
       if (!isMounted) return;
       await fetchProducts();
+      await fetchSettings();
       if (isAdminLoggedIn) {
         await fetchOrders();
       }
@@ -294,7 +312,7 @@ export default function App() {
     load();
 
     // Auto-refresh data to keep the store front and admin panel synced
-    intervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
       fetchProducts();
       if (isAdminLoggedIn) fetchOrders();
     }, 30000); // Every 30 seconds
@@ -349,9 +367,9 @@ export default function App() {
       } else {
         throw new Error(`Erro do servidor: ${response.status}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      const errorMessage = err.response?.data?.message || err.message || "Erro desconhecido ao salvar produto.";
+      const errorMessage = (err instanceof Error) ? err.message : "Erro desconhecido ao salvar produto.";
       alert(`Erro ao salvar produto: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -439,14 +457,14 @@ export default function App() {
   ];
 
   const milkshakeSizes = [
+    { id: '300', label: '300ml', price: settings?.milkshake?.['300'] || 20.90 },
+    { id: '400', label: '400ml', price: settings?.milkshake?.['400'] || 25.90 },
     { id: '500', label: '500ml', price: settings?.milkshake?.['500'] || 28.90 },
-    { id: '700', label: '700ml', price: settings?.milkshake?.['700'] || 35.90 },
   ];
 
   const sundaeSizes = [
-    { id: '300', label: '300ml', price: settings?.sundae?.['300'] || 15.90 },
-    { id: '400', label: '400ml', price: settings?.sundae?.['400'] || 19.90 },
     { id: '500', label: '500ml', price: settings?.sundae?.['500'] || 24.90 },
+    { id: '700', label: '700ml', price: settings?.sundae?.['700'] || 35.90 },
   ];
 
   const milkshakeOptions = [
@@ -1249,7 +1267,7 @@ export default function App() {
 
                         <h3 className="font-bold text-stone-800 mb-6 mt-8">Preços de Milkshake</h3>
                          <div className="grid grid-cols-2 gap-4">
-                           {['500', '700'].map(id => (
+                           {['300', '400', '500'].map(id => (
                              <div key={id} className="space-y-1">
                                 <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{id}ml</label>
                                 <input 
@@ -1264,7 +1282,7 @@ export default function App() {
                         
                         <h3 className="font-bold text-stone-800 mb-6 mt-8">Preços de Sundae</h3>
                          <div className="grid grid-cols-2 gap-4">
-                           {['300', '400', '500'].map(id => (
+                           {['500', '700'].map(id => (
                              <div key={id} className="space-y-1">
                                 <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{id}ml</label>
                                 <input 
@@ -1275,6 +1293,37 @@ export default function App() {
                                 />
                              </div>
                            ))}
+                        </div>
+
+                        {/* Gerenciamento de Adicionais por Categoria */}
+                        <h3 className="font-bold text-stone-800 mb-6 mt-10 border-t pt-8">Adicionais por Categoria</h3>
+                        <div className="space-y-6">
+                          {(['acai', 'milkshake', 'sundae'] as const).map(cat => (
+                            <div key={cat}>
+                              <label className="text-xs font-bold text-stone-500 uppercase">{cat === 'acai' ? 'Açaí' : cat === 'milkshake' ? 'Milkshake' : 'Sundae'}</label>
+                              <div className="mt-2 text-sm text-stone-600 bg-stone-50 p-4 rounded-xl">
+                                Selecione os adicionais:
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                  {products.filter(p => p.category === 'addon').map(addon => (
+                                    <label key={addon.id} className="flex items-center gap-2">
+                                      <input 
+                                        type="checkbox"
+                                        checked={(settings?.[`${cat}Addons` as keyof AppSettings] as string[] || []).includes(addon.name)}
+                                        onChange={e => {
+                                          const prev = (settings?.[`${cat}Addons` as keyof AppSettings] as string[] || []);
+                                          const next = e.target.checked 
+                                            ? [...prev, addon.name]
+                                            : prev.filter(n => n !== addon.name);
+                                          setSettings({...settings, [`${cat}Addons`]: next});
+                                        }}
+                                      />
+                                      {addon.name}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                         <button 
                           onClick={async () => {
