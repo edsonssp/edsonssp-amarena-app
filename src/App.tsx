@@ -177,14 +177,13 @@ const OrderTicket = ({ order }: { order: Order | null }) => {
 type AppSettings = {
   acai?: Record<string, number>;
   milkshake?: Record<string, number>;
-  sundae?: Record<string, number>;
+  potePersonalizado?: Record<string, number>;
   acaiAddons?: string[];
   milkshakeAddons?: string[];
-  sundaeAddons?: string[];
 };
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'sorvete' | 'picole' | 'potes' | 'acai' | 'promos' | 'milkshake' | 'whatsapp' | 'admin' | 'checkout' | 'success'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'sorvete' | 'picole' | 'potes' | 'acai' | 'promos' | 'milkshake' | 'potePersonalizado' | 'whatsapp' | 'admin' | 'checkout' | 'success'>('home');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -198,7 +197,7 @@ export default function App() {
 
   // Checkout State
   const [cart, setCart] = useState<{ name: string, price: number, quantity: number }[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix' | 'delivery_payment' | null>(null);
   const [pixCopied, setPixCopied] = useState(false);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
@@ -207,11 +206,23 @@ export default function App() {
   const [selectedMilkshakeSize, setSelectedMilkshakeSize] = useState<string | null>(null);
   const [milkshakeFlavorInput, setMilkshakeFlavorInput] = useState('');
   const [milkshakeAddons, setMilkshakeAddons] = useState<string[]>([]);
-  const [milkshakeCategory, setMilkshakeCategory] = useState<'milkshake' | 'sundae'>('milkshake');
+  const [milkshakeCategory, setMilkshakeCategory] = useState<'milkshake'>('milkshake');
 
   // Açaí selection state
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selections, setSelections] = useState<string[]>([]);
+  
+  // Pote Personalizado selection state
+  const [selectedTubSize, setSelectedTubSize] = useState<string | null>(null);
+  const [tubFlavors, setTubFlavors] = useState(['', '', '']);
+  
+  // Checkout detail state
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
+  const [address, setAddress] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [apartment, setApartment] = useState('');
 
   // Admin Hold State
   const [adminHoldProgress, setAdminHoldProgress] = useState(0);
@@ -365,12 +376,12 @@ export default function App() {
         fetchProducts();
         alert("Produto salvo com sucesso!");
       } else {
-        throw new Error(`Erro do servidor: ${response.status}`);
+        throw new Error(`Erro do servidor: ${response.status} - ${JSON.stringify(response.data)}`);
       }
     } catch (err: unknown) {
-      console.error(err);
+      console.error("DEBUG ERR:", err);
       const errorMessage = (err instanceof Error) ? err.message : "Erro desconhecido ao salvar produto.";
-      alert(`Erro ao salvar produto: ${errorMessage}`);
+      alert(`Erro detalhado: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -430,6 +441,7 @@ export default function App() {
     { id: 'picole', label: 'Picolés', icon: <PopsicleBittenIcon />, color: 'bg-amarena-red' },
     { id: 'promos', label: 'Promoções', icon: <ShoppingBag />, color: 'bg-amarena-red' },
     { id: 'milkshake', label: 'Milkshake', icon: <CupSoda />, color: 'bg-amarena-red' },
+    { id: 'potePersonalizado', label: 'Monte seu Pote', icon: <IceCream />, color: 'bg-amarena-orange' },
     { id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle />, color: 'bg-amarena-green' },
   ];
 
@@ -448,12 +460,12 @@ export default function App() {
   };
 
   const paidAddons = [
-    { name: 'Creme de ninho', price: 5.20 },
-    { name: 'Creme de Pistache', price: 5.78 },
-    { name: 'Kinder Bueno', price: 6.36 },
-    { name: 'Creme de Valsa', price: 5.20 },
-    { name: 'Kit Kat', price: 5.78 },
-    { name: 'Nutella', price: 5.78 }
+    { name: 'Creme de ninho', price: 4.50 },
+    { name: 'Creme de Pistache', price: 5.00 },
+    { name: 'Kinder Bueno', price: 5.50 },
+    { name: 'Creme de Valsa', price: 5.50 },
+    { name: 'Kit Kat', price: 5.00 },
+    { name: 'Nutella', price: 5.00 }
   ];
 
   const milkshakeSizes = [
@@ -462,16 +474,19 @@ export default function App() {
     { id: '500', label: '500ml', price: settings?.milkshake?.['500'] || 28.90 },
   ];
 
-  const sundaeSizes = [
-    { id: '500', label: '500ml', price: settings?.sundae?.['500'] || 24.90 },
-    { id: '700', label: '700ml', price: settings?.sundae?.['700'] || 35.90 },
-  ];
+  /* REMOVED: sundaeSizes */
 
   const milkshakeOptions = [
     { name: 'Chantilly', price: 2.00 },
     { name: 'Creme de Ninho', price: 4.00 },
     { name: 'Nutella', price: 5.00 },
     { name: 'Ovomaltine', price: 3.50 }
+  ];
+
+  const tubSizes = [
+    { id: '1L', label: '1 Litro', price: settings?.potePersonalizado?.['1L'] || 40.0 },
+    { id: '1.5L', label: '1,5 Litros', price: settings?.potePersonalizado?.['1.5L'] || 50.0 },
+    { id: '2L', label: '2 Litros', price: settings?.potePersonalizado?.['2L'] || 60.60 },
   ];
 
   const renderScreen = () => {
@@ -482,6 +497,12 @@ export default function App() {
             <header className="relative w-full bg-amarena-dark-red pt-8 pb-12 px-6 shadow-[0_10px_30px_rgba(150,18,29,0.3)] mb-8 overflow-visible border-b border-white/5">
               <div className="flex items-start max-w-lg mx-auto relative z-30 w-full">
                 <Logo />
+                <button 
+                  onClick={() => setCurrentScreen('history')}
+                  className="absolute bottom-6 right-[24%] bg-white/20 p-4 rounded-full text-white hover:bg-white/30 transition-all z-50 flex items-center justify-center"
+                >
+                   <History size={24} />
+                </button>
                 {/* Cart Button absolutely positioned near the awnings */}
                 <button 
                   onClick={() => setCurrentScreen('checkout')}
@@ -503,7 +524,7 @@ export default function App() {
               <Awning />
             </header>
             
-            <div className="grid grid-cols-2 gap-5 w-full px-5 max-w-lg">
+            <div className="grid grid-cols-2 gap-3 w-full px-5 max-w-lg">
               {menuItems.map((item) => (
                 <motion.button
                   key={item.id}
@@ -516,12 +537,12 @@ export default function App() {
                     }
                     setCurrentScreen(item.id as typeof currentScreen);
                   }}
-                  className={`${item.color} p-8 rounded-[32px] shadow-lg flex flex-col items-center justify-center gap-4 text-white transition-shadow hover:shadow-xl`}
+                  className={`${item.color} p-5 rounded-[24px] shadow-lg flex flex-col items-center justify-center gap-2 text-white transition-shadow hover:shadow-xl`}
                 >
-                  <div className="bg-white/20 p-4 rounded-3xl">
-                    {React.cloneElement(item.icon as React.ReactElement, { size: 40 })}
+                  <div className="bg-white/20 p-2.5 rounded-2xl">
+                    {React.cloneElement(item.icon as React.ReactElement, { size: 28 })}
                   </div>
-                  <span className="font-bold text-xl tracking-tight">{item.label}</span>
+                  <span className="font-bold text-sm tracking-tight text-center">{item.label}</span>
                 </motion.button>
               ))}
             </div>
@@ -656,17 +677,11 @@ export default function App() {
         );
 
       case 'milkshake': {
-        const currentSizes = milkshakeCategory === 'milkshake' ? milkshakeSizes : sundaeSizes;
-        const currentOptions = milkshakeCategory === 'milkshake' 
-          ? milkshakeOptions.map(o => ({ name: o.name, price: o.price }))
-          : [
-              ...acaiOptions.laranjas.map(o => ({ name: o, price: 0 })),
-              ...acaiOptions.verdes.map(o => ({ name: o, price: 0 })),
-              ...paidAddons.map(o => ({ name: o.name, price: o.price }))
-            ];
+        const currentSizes = milkshakeSizes;
+        const currentOptions = milkshakeOptions.map(o => ({ name: o.name, price: o.price }));
 
         return (
-          <div className="animate-in fade-in duration-500 no-print flex flex-col h-screen bg-white">
+          <div className="animate-in fade-in duration-500 no-print flex flex-col min-h-screen bg-white">
             <div className="bg-amarena-purple p-6 text-white flex flex-col gap-4 sticky top-0 z-50">
               <div className="flex items-center gap-4">
                 <button 
@@ -684,20 +699,14 @@ export default function App() {
               <div className="flex bg-white/20 p-1 rounded-2xl">
                  <button 
                   onClick={() => { setMilkshakeCategory('milkshake'); setSelectedMilkshakeSize(null); setMilkshakeAddons([]); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${milkshakeCategory === 'milkshake' ? 'bg-white text-amarena-purple shadow-sm' : 'text-white'}`}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all bg-white text-amarena-purple shadow-sm`}
                  >
                    Milkshake
-                 </button>
-                 <button 
-                  onClick={() => { setMilkshakeCategory('sundae'); setSelectedMilkshakeSize(null); setMilkshakeAddons([]); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${milkshakeCategory === 'sundae' ? 'bg-white text-amarena-purple shadow-sm' : 'text-white'}`}
-                 >
-                   Sundae
                  </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 pb-52 space-y-8">
+            <div className="flex-1 p-6 space-y-8 pb-20">
               {/* Size Selection */}
               <div>
                 <h3 className="text-sm font-bold text-stone-500 uppercase tracking-widest mb-4 pl-1">Escolha o Tamanho</h3>
@@ -766,7 +775,7 @@ export default function App() {
               </section>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-white border-t border-stone-100 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-50">
+            <div className="p-6 bg-white border-t border-stone-100 z-50">
               {(() => {
                 const sizePrice = currentSizes.find(s => s.id === selectedMilkshakeSize)?.price || 0;
                 const addonsPrice = milkshakeAddons.reduce((acc, name) => acc + (currentOptions.find(o => o.name === name)?.price || 0), 0);
@@ -775,17 +784,9 @@ export default function App() {
 
                 return (
                   <>
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="flex justify-between items-center mb-4">
                        <p className="text-xl font-bold text-amarena-purple">Total:</p>
                        <p className="text-3xl font-display font-black text-amarena-purple">R$ {total.toFixed(2)}</p>
-                    </div>
-
-                    <div className="text-center mb-4">
-                       {!canFinish && (
-                         <p className="text-xs font-bold text-red-500 animate-pulse">
-                            Digite o sabor e escolha o tamanho
-                         </p>
-                       )}
                     </div>
 
                     <Button 
@@ -816,9 +817,105 @@ export default function App() {
         );
       }
 
+      case 'potePersonalizado': {
+        return (
+          <div className="animate-in fade-in duration-500 no-print flex flex-col min-h-screen bg-white">
+            <div className="bg-amarena-orange p-6 text-white flex items-center gap-4 sticky top-0 z-50">
+              <button 
+                onClick={() => { setCurrentScreen('home'); setSelectedTubSize(null); setTubFlavors(['', '', '']); }}
+                className="hover:bg-white/20 p-2 rounded-xl"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <h2 className="text-xl font-bold tracking-tight">Monte seu Pote</h2>
+            </div>
+            
+            <div className="flex-1 p-6 space-y-8 pb-20">
+              {/* Size Selection */}
+              <div>
+                <h3 className="text-sm font-bold text-stone-500 uppercase tracking-widest mb-4 pl-1">Escolha o Tamanho</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {tubSizes.map(size => (
+                    <button
+                      key={size.id}
+                      onClick={() => setSelectedTubSize(size.id)}
+                      className={`bg-white border-2 p-4 rounded-3xl text-center shadow-sm transition-all flex flex-col items-center gap-2 ${
+                        selectedTubSize === size.id ? 'border-amarena-orange shadow-md' : 'border-stone-100'
+                      }`}
+                    >
+                      <p className="font-bold text-sm text-stone-700">{size.label}</p>
+                      <p className={`font-black text-sm ${selectedTubSize === size.id ? 'text-amarena-orange' : 'text-amarena-orange/60'}`}>
+                        R$ {size.price.toFixed(2)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Flavor Inputs */}
+              <div className="space-y-4">
+                <label className="text-sm font-bold text-stone-500 uppercase tracking-widest pl-1">Escolha até 3 sabores</label>
+                {tubFlavors.map((flavor, idx) => (
+                  <input 
+                    key={idx}
+                    type="text"
+                    placeholder={`Sabor ${idx + 1}`}
+                    value={flavor}
+                    onChange={(e) => {
+                      const newFlavors = [...tubFlavors];
+                      newFlavors[idx] = e.target.value;
+                      setTubFlavors(newFlavors);
+                    }}
+                    className="w-full p-5 rounded-2xl bg-stone-50 border border-stone-100 focus:border-amarena-orange outline-none font-bold text-stone-800 transition-all"
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Total / Add to Cart */}
+            <div className="p-6 bg-white border-t border-stone-100 z-50">
+              {(() => {
+                const total = tubSizes.find(s => s.id === selectedTubSize)?.price || 0;
+                const flavoredCount = tubFlavors.filter(f => f.trim().length > 0).length;
+                const canFinish = selectedTubSize && flavoredCount > 0;
+
+                return (
+                  <>
+                    <div className="flex justify-between items-center mb-4">
+                       <p className="text-xl font-bold text-amarena-orange">Total:</p>
+                       <p className="text-3xl font-display font-black text-amarena-orange">R$ {total.toFixed(2)}</p>
+                    </div>
+
+                    <Button 
+                      variant={canFinish ? "orange" : "outline"}
+                      disabled={!canFinish}
+                      className={`w-full py-5 text-lg uppercase font-black tracking-widest ${!canFinish ? 'opacity-30' : 'shadow-xl shadow-amarena-orange/20'}`}
+                      onClick={() => {
+                        const sizeObj = tubSizes.find(s => s.id === selectedTubSize);
+                        setCart(prev => [...prev, {
+                          name: `Pote Personalizado ${sizeObj?.label} (${tubFlavors.filter(f => f.trim().length > 0).join(', ')})`,
+                          price: total,
+                          quantity: 1
+                        }]);
+                        setCurrentScreen('home');
+                        setSelectedTubSize(null);
+                        setTubFlavors(['', '', '']);
+                      }}
+                    >
+                      <ShoppingCart size={20} className="mr-2" />
+                      Adicionar ao Carrinho
+                    </Button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        );
+      }
+
       case 'acai':
         return (
-          <div className="animate-in fade-in duration-500 no-print flex flex-col h-screen bg-white">
+          <div className="animate-in fade-in duration-500 no-print flex flex-col min-h-screen bg-white">
             <div className="bg-amarena-purple p-6 text-white flex items-center gap-4 sticky top-0 z-50">
               <button 
                 onClick={() => { setCurrentScreen('home'); setSelectedSize(null); }}
@@ -830,7 +927,7 @@ export default function App() {
             </div>
             
             {!selectedSize ? (
-              <div className="px-6 py-8 space-y-6 flex-1 overflow-y-auto">
+              <div className="px-6 py-8 space-y-6 flex-1">
                 <h3 className="text-lg font-bold text-stone-800">Escolha o Tamanho</h3>
                 <div className="grid grid-cols-2 gap-4">
                   {acaiSizes.map(size => (
@@ -850,7 +947,7 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col">
                  <div className="bg-amarena-purple/5 p-4 flex justify-between items-center border-b border-amarena-purple/10">
                     <div className="flex items-center gap-3">
                       <div className="bg-amarena-purple text-white p-2 rounded-xl">
@@ -866,7 +963,7 @@ export default function App() {
                     <button onClick={() => { setSelectedSize(null); setSelections([]); }} className="text-amarena-purple text-xs font-bold uppercase hover:underline">Trocar</button>
                  </div>
 
-                 <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-32">
+                 <div className="flex-1 p-4 space-y-8 pb-20">
                     {(() => {
                       const maxVerdes = 3;
                       const maxLaranjas = (selectedSize === 'M500' || selectedSize === 'G800') ? 2 : 1;
@@ -971,7 +1068,7 @@ export default function App() {
                    const canFinish = faltamVerdes === 0 && faltamLaranjas === 0;
 
                    return (
-                     <div className="fixed bottom-0 left-0 right-0 p-6 bg-white border-t border-stone-100 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-50">
+                     <div className="p-6 bg-white border-t border-stone-100 z-50">
                         <div className="flex justify-between items-center mb-4">
                            <p className="font-bold text-stone-400 uppercase tracking-widest text-xs">Total:</p>
                            <p className="text-3xl font-display font-black text-amarena-purple">R$ {finalPrice.toFixed(2)}</p>
@@ -1279,28 +1376,30 @@ export default function App() {
                              </div>
                            ))}
                         </div>
-                        
-                        <h3 className="font-bold text-stone-800 mb-6 mt-8">Preços de Sundae</h3>
-                         <div className="grid grid-cols-2 gap-4">
-                           {['500', '700'].map(id => (
+
+                        <h3 className="font-bold text-stone-800 mb-6 mt-8">Preços de Pote Personalizado</h3>
+                         <div className="grid grid-cols-3 gap-4">
+                           {['1L', '1.5L', '2L'].map(id => (
                              <div key={id} className="space-y-1">
-                                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{id}ml</label>
+                                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{id}</label>
                                 <input 
                                   type="number"
                                   className="w-full p-3 bg-stone-50 rounded-xl outline-none"
-                                  value={settings?.sundae?.[id] || ''}
-                                  onChange={e => setSettings({...settings, sundae: {...settings?.sundae, [id]: parseFloat(e.target.value)}})}
+                                  value={settings?.potePersonalizado?.[id] || ''}
+                                  onChange={e => setSettings({...settings, potePersonalizado: {...settings?.potePersonalizado, [id]: parseFloat(e.target.value)}})}
                                 />
                              </div>
                            ))}
                         </div>
+                        
+                        {/* Settings UI Sundae removed */}
 
                         {/* Gerenciamento de Adicionais por Categoria */}
                         <h3 className="font-bold text-stone-800 mb-6 mt-10 border-t pt-8">Adicionais por Categoria</h3>
                         <div className="space-y-6">
-                          {(['acai', 'milkshake', 'sundae'] as const).map(cat => (
+                          {(['acai', 'milkshake'] as const).map(cat => (
                             <div key={cat}>
-                              <label className="text-xs font-bold text-stone-500 uppercase">{cat === 'acai' ? 'Açaí' : cat === 'milkshake' ? 'Milkshake' : 'Sundae'}</label>
+                              <label className="text-xs font-bold text-stone-500 uppercase">{cat === 'acai' ? 'Açaí' : 'Milkshake'}</label>
                               <div className="mt-2 text-sm text-stone-600 bg-stone-50 p-4 rounded-xl">
                                 Selecione os adicionais:
                                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -1509,7 +1608,7 @@ export default function App() {
                                           </td>
                                           <td className="px-6 py-4">
                                             <span className="px-2 py-1 bg-stone-100 rounded-lg text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                                               {p.category}
+                                               {p.category || 'Sem categoria'}
                                             </span>
                                           </td>
                                           <td className="px-6 py-4 font-bold text-stone-700">R$ {p.price.toFixed(2)}</td>
@@ -1527,19 +1626,19 @@ export default function App() {
                                                 { (p.active ?? true) ? 'Disponível' : 'Indisponível' }
                                               </button>
                                            </td>
-                                          <td className="px-6 py-4 text-right">
-                                             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <td className="px-2 py-4 text-right">
+                                             <div className="flex justify-end gap-1 transition-opacity">
                                                 <button 
                                                   onClick={() => setEditingProduct(p)}
-                                                  className="w-10 h-10 flex items-center justify-center bg-stone-100 text-stone-500 hover:text-amarena-green hover:bg-green-50 rounded-xl transition-all shadow-sm"
+                                                  className="w-8 h-8 flex items-center justify-center bg-stone-100 text-stone-500 hover:text-amarena-green hover:bg-green-50 rounded-lg transition-all shadow-sm"
                                                 >
-                                                  <Edit size={16} />
+                                                  <Edit size={14} />
                                                 </button>
                                                 <button 
                                                   onClick={() => handleDeleteProduct(p.id)}
-                                                  className="w-10 h-10 flex items-center justify-center bg-stone-100 text-stone-500 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all shadow-sm"
+                                                  className="w-8 h-8 flex items-center justify-center bg-stone-100 text-stone-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all shadow-sm"
                                                 >
-                                                  <Trash2 size={16} />
+                                                  <Trash2 size={14} />
                                                 </button>
                                              </div>
                                           </td>
@@ -1563,12 +1662,22 @@ export default function App() {
         const pixKey = "45.057.040/0001-08";
 
         const finishOrder = async (method: string) => {
+          if (!clientName || !clientPhone) {
+            alert("Nome e Telefone são obrigatórios!");
+            return;
+          }
           try {
             setLoading(true);
             const res = await axios.post('/api/orders', {
               items: cart,
               total: total,
-              paymentMethod: method
+              paymentMethod: method,
+              clientInfo: {
+                name: clientName,
+                phone: clientPhone,
+                deliveryType,
+                address: deliveryType === 'delivery' ? `${address}, ${addressNumber} ${apartment ? `- Apt ${apartment}` : ''}` : 'Retirada na Sorveteria'
+              }
             });
             setLastOrderId(res.data.id);
             setCurrentScreen('success');
@@ -1605,6 +1714,29 @@ export default function App() {
               <button onClick={() => setCurrentScreen('home')} className="p-2 bg-stone-100 rounded-xl">
                 <X />
               </button>
+            </div>
+
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-stone-100 mb-8">
+              <h3 className="font-bold text-stone-800 mb-4">Seus dados</h3>
+              <div className="space-y-3">
+                 <input type="text" placeholder="Nome Completo" value={clientName} onChange={e => setClientName(e.target.value)} className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 outline-none" />
+                 <input type="tel" placeholder="Telefone (Obrigatório)" value={clientPhone} onChange={e => setClientPhone(e.target.value)} className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 outline-none" required />
+                 
+                 <div className="flex gap-2">
+                    <button onClick={() => setDeliveryType('delivery')} className={`flex-1 p-3 rounded-2xl font-bold ${deliveryType === 'delivery' ? 'bg-primary text-white' : 'bg-stone-100 text-stone-500'}`}>Entrega</button>
+                    <button onClick={() => setDeliveryType('pickup')} className={`flex-1 p-3 rounded-2xl font-bold ${deliveryType === 'pickup' ? 'bg-primary text-white' : 'bg-stone-100 text-stone-500'}`}>Retirar</button>
+                 </div>
+                 
+                 {deliveryType === 'delivery' && (
+                    <>
+                       <input type="text" placeholder="Rua / Avenida" value={address} onChange={e => setAddress(e.target.value)} className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 outline-none" />
+                       <div className="grid grid-cols-2 gap-2">
+                          <input type="text" placeholder="Número" value={addressNumber} onChange={e => setAddressNumber(e.target.value)} className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 outline-none" />
+                          <input type="text" placeholder="Apto (Opcional)" value={apartment} onChange={e => setApartment(e.target.value)} className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 outline-none" />
+                       </div>
+                    </>
+                 )}
+              </div>
             </div>
 
             <div className="bg-white rounded-[32px] p-6 shadow-sm border border-stone-100 mb-8">
@@ -1651,6 +1783,19 @@ export default function App() {
                   <p className="text-xs text-stone-400">Transferência Manual</p>
                 </div>
               </button>
+
+              <button 
+                onClick={() => setPaymentMethod('delivery_payment')}
+                className={`w-full p-6 rounded-3xl border-2 transition-all flex items-center gap-4 ${paymentMethod === 'delivery_payment' ? 'border-amarena-green bg-amarena-green/5' : 'border-stone-100 bg-white'}`}
+              >
+                <div className={`p-3 rounded-2xl ${paymentMethod === 'delivery_payment' ? 'bg-amarena-green text-white' : 'bg-stone-100 text-stone-400'}`}>
+                  <CreditCard size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-stone-800">Pagar na Entrega</p>
+                  <p className="text-xs text-stone-400">Cartão ou Dinheiro</p>
+                </div>
+              </button>
             </div>
 
             <div className="mt-8">
@@ -1670,6 +1815,10 @@ export default function App() {
 
               {paymentMethod === 'card' && (
                 <Button loading={loading} onClick={handleCardPayment} className="w-full py-5 text-xl shadow-xl shadow-primary/20">Finalizar com Cartão</Button>
+              )}
+
+              {paymentMethod === 'delivery_payment' && (
+                <Button variant="secondary" className="w-full py-5 text-xl shadow-xl shadow-amarena-green/20 bg-amarena-green" onClick={() => finishOrder('Pagar na Entrega')}>Finalizar Pedido</Button>
               )}
             </div>
           </div>
@@ -1691,6 +1840,68 @@ export default function App() {
             <Button onClick={() => setCurrentScreen('home')} variant="outline" className="w-full">Voltar ao Menu</Button>
           </div>
         );
+
+const OrderHistory = ({ clientPhone, setCurrentScreen }: { clientPhone: string, setCurrentScreen: (screen: string) => void }) => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (clientPhone) {
+      setLoadingHistory(true);
+      axios.get(`/api/orders/user/${clientPhone}`)
+        .then(res => setOrders(res.data))
+        .catch(err => console.error("Error fetching history:", err))
+        .finally(() => setLoadingHistory(false));
+    }
+  }, [clientPhone]);
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="bg-amarena-orange p-6 text-white flex items-center gap-4 sticky top-0 z-50">
+        <button onClick={() => setCurrentScreen('home')} className="p-2 hover:bg-white/20 rounded-xl transition-all">
+          <ChevronLeft />
+        </button>
+        <h2 className="text-xl font-bold tracking-tight">Meus Pedidos</h2>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        {loadingHistory ? (
+          <p className="text-center text-stone-400 py-10">Carregando seus pedidos...</p>
+        ) : orders.length === 0 ? (
+          <p className="text-center text-stone-400 py-10">Nenhum pedido encontrado para este telefone.</p>
+        ) : (
+          orders.map(order => (
+            <div key={order.id} className="bg-stone-50 rounded-3xl p-6 border border-stone-100">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="font-bold text-stone-800">Pedido #{order.id.slice(-4).toUpperCase()}</p>
+                  <p className="text-xs text-stone-400">{new Date(order.createdAt).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${order.status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
+                   {order.status === 'pending' ? 'Pendente' : 'Concluído'}
+                </span>
+              </div>
+              {order.items.map((item, i) => (
+                <div key={i} className="flex justify-between text-sm py-1">
+                  <span className="text-stone-600">{item.quantity}x {item.name}</span>
+                  <span className="font-medium">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="mt-4 pt-4 border-t border-stone-200 flex justify-between font-bold">
+                <span className="text-stone-800">Total</span>
+                <span className="text-amarena-orange">R$ {order.total.toFixed(2)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+      case 'history': {
+        return <OrderHistory clientPhone={clientPhone} setCurrentScreen={setCurrentScreen} />;
+      }
 
       default:
         return (
